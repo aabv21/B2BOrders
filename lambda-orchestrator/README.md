@@ -1,75 +1,48 @@
 # Lambda Orchestrator
 
-AWS Lambda function to orchestrate order creation and confirmation in a single operation.
+AWS Lambda function that orchestrates the complete order workflow: validate customer → create order → confirm order.
 
-## Features
+## 📋 Overview
 
-- ✅ Validates customer exists
-- ✅ Creates order with stock validation
-- ✅ Confirms order with idempotency
-- ✅ Returns consolidated response
-- ✅ Correlation ID tracking
-- ✅ Error handling and logging
-- ✅ Local testing with serverless-offline
-- ✅ AWS deployment ready
-- ✅ Comprehensive tests with Mocha + Chai
+This serverless function provides an atomic operation to create and confirm orders in a single HTTP request, coordinating calls to the Customers API and Orders API.
 
-## Quick Start
+## 🚀 Current Deployment
 
-### Local Development
-
-```bash
-# Install dependencies
-npm install
-
-# Copy environment variables
-cp .env.example .env
-
-# Run locally with serverless-offline
-npm run dev
+**AWS Lambda Endpoint:**
+```
+https://dflpbrmoel.execute-api.us-east-1.amazonaws.com/orchestrator/create-and-confirm-order
 ```
 
-The Lambda will be available at: `http://localhost:3000/orchestrator/create-and-confirm-order`
+**Region:** us-east-1  
+**Runtime:** Node.js 20.x  
+**Framework:** Serverless Framework
 
-### Testing
+## 📡 API Endpoint
 
-```bash
-# Run tests (requires APIs to be running)
-npm test
+### POST /orchestrator/create-and-confirm-order
 
-# Test locally with curl
-curl -X POST http://localhost:3000/orchestrator/create-and-confirm-order \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": 1,
-    "items": [{"product_id": 2, "qty": 3}],
-    "idempotency_key": "test-key-123",
-    "correlation_id": "req-456"
-  }'
-```
+Creates an order and confirms it atomically with idempotency guarantee.
 
-## Request Format
-
+**Request:**
 ```json
 {
   "customer_id": 1,
   "items": [
-    {"product_id": 2, "qty": 3},
-    {"product_id": 3, "qty": 1}
+    {
+      "product_id": 1,
+      "qty": 2
+    }
   ],
   "idempotency_key": "unique-key-123",
-  "correlation_id": "req-789"
+  "correlation_id": "optional-trace-id"
 }
 ```
 
-## Response Format
-
-### Success (201)
-
+**Response (201):**
 ```json
 {
   "success": true,
-  "correlationId": "req-789",
+  "correlationId": "optional-trace-id",
   "data": {
     "customer": {
       "id": 1,
@@ -78,54 +51,246 @@ curl -X POST http://localhost:3000/orchestrator/create-and-confirm-order \
       "phone": "+1-555-0100"
     },
     "order": {
-      "id": 10,
+      "id": 23,
       "status": "CONFIRMED",
-      "total_cents": 45900,
+      "total_cents": 259800,
       "items": [...]
     }
   }
 }
 ```
 
-### Error (400/500)
+**Error Responses:**
+- `400` - Missing or invalid fields
+- `404` - Customer or product not found
+- `409` - Insufficient stock or duplicate idempotency key
+- `500` - Internal orchestration error
 
-```json
-{
-  "success": false,
-  "correlationId": "req-789",
-  "error": "Customer not found"
-}
+## 🧪 Testing the Lambda
+
+```bash
+# Test current deployment
+curl -X POST https://dflpbrmoel.execute-api.us-east-1.amazonaws.com/orchestrator/create-and-confirm-order \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": 1,
+    "items": [{"product_id": 1, "qty": 2}],
+    "idempotency_key": "test-'$(date +%s)'",
+    "correlation_id": "test-request"
+  }'
 ```
 
-## AWS Deployment
+## 🔧 Local Development
+
+### Run Locally with Express
+
+```bash
+# Start local server (port 3000)
+npm run dev
+
+# Test locally
+curl -X POST http://localhost:3000/orchestrator/create-and-confirm-order \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": 1,
+    "items": [{"product_id": 1, "qty": 2}],
+    "idempotency_key": "local-test",
+    "correlation_id": "local-req"
+  }'
+```
+
+### Run with Serverless Offline
+
+```bash
+# Start serverless-offline (port 3000)
+npm run dev:serverless
+
+# Test
+curl -X POST http://localhost:3000/orchestrator/create-and-confirm-order \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "items": [{"product_id": 1, "qty": 1}], "idempotency_key": "test"}'
+```
+
+## 📦 Deployment to AWS
 
 ### Prerequisites
 
 - AWS CLI configured with credentials
-- Serverless Framework installed
-- Local APIs running (Customers API on port 3001, Orders API on port 3002)
-- Proxy server running (see below)
-- ngrok tunnel exposing the proxy server
+- Serverless Framework installed globally: `npm install -g serverless`
+- Local APIs running (Customers + Orders)
+- ngrok account (free tier works)
 
-### Proxy Server Setup
+### Step-by-Step Deployment
 
-The Lambda needs to communicate with local APIs through a proxy server and ngrok tunnel:
+#### 1. Start Local Services
 
 ```bash
-# 1. Start the proxy server (from project root)
+# Terminal 1: Start Docker services
+cd ..
+docker-compose up
+
+# Terminal 2: Start proxy server
 node proxy-server.js
-
-# 2. Expose proxy with ngrok
-ngrok http 4000
-
-# 3. Update serverless.yml with ngrok URL
-# CUSTOMERS_API_BASE: https://your-ngrok-url.ngrok-free.app
-# ORDERS_API_BASE: https://your-ngrok-url.ngrok-free.app
+# Proxy runs on http://localhost:4000
 ```
 
-### Deploy
+#### 2. Expose with ngrok
 
 ```bash
+# Terminal 3: Start ngrok
+ngrok http 4000
+
+# Copy the ngrok URL from output:
+# Example: https://1e4d208945fe.ngrok-free.app
+```
+
+#### 3. Update Configuration
+
+Edit `serverless.yml` and update the environment variables:
+
+```yaml
+environment:
+  CUSTOMERS_API_BASE: https://YOUR-NGROK-URL.ngrok-free.app  # Replace with your ngrok URL
+  ORDERS_API_BASE: https://YOUR-NGROK-URL.ngrok-free.app     # Replace with your ngrok URL
+  SERVICE_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...    # Keep as is
+  DEV_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...         # Keep as is
+```
+
+#### 4. Deploy
+
+```bash
+# Deploy to AWS
+npm run deploy
+
+# Output will show your Lambda endpoint:
+# endpoint: POST - https://xxx.execute-api.us-east-1.amazonaws.com/orchestrator/create-and-confirm-order
+```
+
+#### 5. Test Deployment
+
+```bash
+curl -X POST https://YOUR-LAMBDA-URL/orchestrator/create-and-confirm-order \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": 1,
+    "items": [{"product_id": 1, "qty": 1}],
+    "idempotency_key": "deploy-test-'$(date +%s)'",
+    "correlation_id": "deploy-test"
+  }'
+```
+
+## 🔄 Redeployment
+
+**Important:** ngrok URLs change every time you restart ngrok (free tier).
+
+After restarting ngrok:
+1. Get new ngrok URL
+2. Update `serverless.yml` with new URL
+3. Redeploy: `npm run deploy`
+
+## 📊 Monitoring
+
+### View Logs
+
+```bash
+# Tail Lambda logs
+npm run logs
+
+# Or use AWS CLI
+aws logs tail /aws/lambda/b2b-orders-orchestrator-dev-createAndConfirmOrder --follow
+```
+
+### CloudWatch Logs
+
+Logs are available in AWS CloudWatch:
+- Log Group: `/aws/lambda/b2b-orders-orchestrator-dev-createAndConfirmOrder`
+- Region: us-east-1
+
+## 🗑️ Remove Deployment
+
+```bash
+# Remove Lambda and API Gateway
+npm run remove
+```
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────┐
+│  AWS Lambda (us-east-1)             │
+│  Orchestrator Function              │
+│  - Validates customer               │
+│  - Creates order                    │
+│  - Confirms order (idempotent)      │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│  ngrok Tunnel                        │
+│  https://xxx.ngrok-free.app          │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│  Proxy Server (localhost:4000)       │
+│  - Routes to Customers API           │
+│  - Routes to Orders API              │
+└──────────┬───────────────────────────┘
+           │
+           ├──────────────┬─────────────┐
+           │              │             │
+           ▼              ▼             ▼
+┌──────────────┐  ┌────────────┐  ┌──────────┐
+│ Customers API│  │ Orders API │  │  MySQL   │
+│  Port 3001   │  │ Port 3002  │  │Port 3307 │
+└──────────────┘  └────────────┘  └──────────┘
+```
+
+## 📝 Configuration
+
+### Environment Variables
+
+- `CUSTOMERS_API_BASE` - Base URL for Customers API (via ngrok)
+- `ORDERS_API_BASE` - Base URL for Orders API (via ngrok)
+- `SERVICE_TOKEN` - JWT token for Customers API internal endpoints
+- `DEV_TOKEN` - JWT token for Orders API endpoints
+
+### Serverless Configuration
+
+Key settings in `serverless.yml`:
+- **Runtime:** nodejs20.x
+- **Memory:** 512 MB
+- **Timeout:** 30 seconds
+- **Region:** us-east-1
+- **Bundler:** esbuild (fast builds)
+
+## 🔍 Workflow Steps
+
+1. **Validate Customer** - Calls `GET /internal/customers/:id` on Customers API
+2. **Create Order** - Calls `POST /orders` on Orders API (validates stock, calculates total)
+3. **Confirm Order** - Calls `POST /orders/:id/confirm` on Orders API (idempotent with X-Idempotency-Key)
+
+If any step fails, the error is mapped and returned to the client.
+
+## 📚 Related Documentation
+
+- [Main README](../README.md)
+- [Customers API](../customers-api/README.md)
+- [Orders API](../orders-api/README.md)
+- [Proxy Server Setup](../PROXY-README.md) (if exists)
+
+## 🛠️ Development Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Run locally with Express
+npm run dev
+
+# Run with serverless-offline
+npm run dev:serverless
+
 # Deploy to AWS
 npm run deploy
 
@@ -136,78 +301,10 @@ npm run logs
 npm run remove
 ```
 
-### Current Deployment
+## ⚠️ Important Notes
 
-**Endpoint:** `https://dflpbrmoel.execute-api.us-east-1.amazonaws.com/orchestrator/create-and-confirm-order`
-
-**Test:**
-```bash
-curl -X POST https://dflpbrmoel.execute-api.us-east-1.amazonaws.com/orchestrator/create-and-confirm-order \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": 1,
-    "items": [{"product_id": 1, "qty": 2}],
-    "idempotency_key": "unique-key-123",
-    "correlation_id": "req-456"
-  }'
-```
-
-### Environment Variables
-
-Configured in `serverless.yml`:
-
-```yaml
-environment:
-  CUSTOMERS_API_BASE: https://your-ngrok-url.ngrok-free.app
-  ORDERS_API_BASE: https://your-ngrok-url.ngrok-free.app
-  SERVICE_TOKEN: <service-token-for-internal-endpoints>
-  DEV_TOKEN: <user-token-for-orders-api>
-```
-
-**Note:** Tokens are generated without expiration using `node generate-token.js`
-
-## Workflow
-
-1. **Validate Customer** - Calls Customers API internal endpoint
-2. **Create Order** - Calls Orders API to create order (validates stock)
-3. **Confirm Order** - Calls Orders API to confirm order (idempotent)
-4. **Return Response** - Returns consolidated customer + order data
-
-## Error Handling
-
-- Customer not found → 400
-- Insufficient stock → 400
-- Order creation failed → 500
-- Order confirmation failed → 500
-- Unexpected error → 500
-
-All errors include correlation ID for tracking.
-
-## Monitoring
-
-Use AWS CloudWatch to monitor:
-- Lambda invocations
-- Error rates
-- Duration
-- Logs with correlation IDs
-
-## Testing with Postman/Insomnia
-
-Import the following request:
-
-**POST** `http://localhost:3000/orchestrator/create-and-confirm-order`
-
-**Headers:**
-```
-Content-Type: application/json
-```
-
-**Body:**
-```json
-{
-  "customer_id": 1,
-  "items": [{"product_id": 2, "qty": 3}],
-  "idempotency_key": "{{$timestamp}}",
-  "correlation_id": "{{$guid}}"
-}
-```
+- Lambda requires ngrok tunnel to access local APIs
+- ngrok free tier URLs change on restart - requires redeployment
+- Tokens are configured without expiration for development
+- For production, use proper secrets management (AWS Secrets Manager)
+- Consider deploying APIs to AWS for production use
