@@ -1,0 +1,36 @@
+{
+  "name": "lambda-orchestrator",
+  "version": "1.0.0",
+  "description": "Lambda Orchestrator for B2B Orders - Create and Confirm Orders",
+  "main": "handler.js",
+  "scripts": {
+    "dev": "node server.js",
+    "dev:serverless": "serverless offline start --httpPort 3000",
+    "deploy": "serverless deploy",
+    "remove": "serverless remove",
+    "logs": "serverless logs -f createAndConfirmOrder --tail",
+    "build": "echo 'No build step required for Node.js Lambda'"
+  },
+  "keywords": [
+    "lambda",
+    "serverless",
+    "orchestrator",
+    "aws"
+  ],
+  "author": "Andres Buelvas",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "chai": "^5.1.2",
+    "chai-http": "^5.1.1",
+    "esbuild": "^0.25.11",
+    "mocha": "^11.0.1",
+    "serverless": "^4.4.14",
+    "serverless-esbuild": "^1.55.1",
+    "serverless-offline": "^14.4.0"
+  }
+}

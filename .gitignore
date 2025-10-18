@@ -1,0 +1,23 @@
+node_modules/
+.env
+.env.local
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Winston logs
+logs/
+*/logs/
+**/logs/
+.DS_Store
+dist/
+build/
+coverage/
+.serverless/
+.webpack/
+*.swp
+*.swo
+*~
+.vscode/
+.idea/

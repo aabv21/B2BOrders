@@ -1,0 +1,304 @@
+openapi: 3.1.0
+info:
+  title: Customers API
+  description: API for managing B2B customers
+  version: 1.0.0
+  contact:
+    name: Andres Buelvas
+    email: contact@example.com
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+
+tags:
+  - name: Customers
+    description: Customer management endpoints
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: customers-api
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /customers:
+    post:
+      tags:
+        - Customers
+      summary: Create a new customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomer'
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags:
+        - Customers
+      summary: Search customers
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search term for name, email, or phone
+        - name: cursor
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+          description: Cursor for pagination (last customer ID)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of results to return
+      responses:
+        '200':
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  cursor:
+                    type: integer
+
+  /customers/{id}:
+    get:
+      tags:
+        - Customers
+      summary: Get customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Customers
+      summary: Update customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomer'
+      responses:
+        '200':
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Customers
+      summary: Delete customer (soft delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Customer deleted successfully
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /internal/customers/{id}:
+    get:
+      tags:
+        - Customers
+      summary: Get customer by ID (internal use)
+      description: Requires service token authentication
+      security:
+        - ServiceToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '401':
+          description: Service token required
+        '403':
+          description: Invalid service token
+        '404':
+          description: Customer not found
+
+components:
+  schemas:
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Acme Corporation
+        email:
+          type: string
+          format: email
+          example: contact@acme.com
+        phone:
+          type: string
+          example: '+1-555-0100'
+        created_at:
+          type: string
+          format: date-time
+
+    CreateCustomer:
+      type: object
+      required:
+        - name
+        - email
+        - phone
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+          example: Acme Corporation
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: contact@acme.com
+        phone:
+          type: string
+          minLength: 7
+          maxLength: 50
+          example: '+1-555-0100'
+
+    UpdateCustomer:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        phone:
+          type: string
+          minLength: 7
+          maxLength: 50
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  securitySchemes:
+    ServiceToken:
+      type: http
+      scheme: bearer
+      description: Service token for internal API communication

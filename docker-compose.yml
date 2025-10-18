@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: b2b-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: b2b_orders
+      MYSQL_USER: b2buser
+      MYSQL_PASSWORD: b2bpassword
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-prootpassword']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  customers-api:
+    build:
+      context: ./customers-api
+      dockerfile: Dockerfile
+    container_name: b2b-customers-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=b2buser
+      - DB_PASSWORD=b2bpassword
+      - DB_NAME=b2b_orders
+      - CUSTOMERS_API_PORT=3001
+    ports:
+      - '3001:3001'
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./customers-api:/app
+      - /app/node_modules
+
+  orders-api:
+    build:
+      context: ./orders-api
+      dockerfile: Dockerfile
+    container_name: b2b-orders-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=b2buser
+      - DB_PASSWORD=b2bpassword
+      - DB_NAME=b2b_orders
+      - ORDERS_API_PORT=3002
+      - CUSTOMERS_API_BASE=http://customers-api:3001
+    ports:
+      - '3002:3002'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      customers-api:
+        condition: service_started
+    volumes:
+      - ./orders-api:/app
+      - /app/node_modules
+
+volumes:
+  mysql_data:

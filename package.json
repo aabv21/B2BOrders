@@ -1,0 +1,51 @@
+{
+  "name": "b2b-orders",
+  "version": "1.0.0",
+  "description": "B2B Orders System - Customers API, Orders API and Lambda Orchestrator",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "customers-api",
+    "orders-api",
+    "lambda-orchestrator"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm install --workspace=customers-api && npm install --workspace=orders-api && npm install --workspace=lambda-orchestrator",
+    "build": "npm run build --workspaces",
+    "dev:customers": "npm run dev --workspace=customers-api",
+    "dev:orders": "npm run dev --workspace=orders-api",
+    "dev:lambda": "npm run dev --workspace=lambda-orchestrator",
+    "start:customers": "npm run start --workspace=customers-api",
+    "start:orders": "npm run start --workspace=orders-api",
+    "test": "npm run test --workspaces",
+    "test:customers": "npm run test --workspace=customers-api",
+    "test:orders": "npm run test --workspace=orders-api",
+    "test:lambda": "npm run test --workspace=lambda-orchestrator",
+    "generate:token": "node generate-token.js",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "db:migrate": "docker-compose exec mysql mysql -u root -prootpassword b2b_orders < db/schema.sql",
+    "db:seed": "docker-compose exec mysql mysql -u root -prootpassword b2b_orders < db/seed.sql"
+  },
+  "keywords": [
+    "b2b",
+    "orders",
+    "microservices",
+    "lambda",
+    "serverless",
+    "nodejs",
+    "express",
+    "mysql"
+  ],
+  "author": "Andres Buelvas",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
